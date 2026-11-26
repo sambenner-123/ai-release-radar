@@ -1,0 +1,46 @@
+name: Update release radar
+
+on:
+  schedule:
+    - cron: '17 * * * *'   # every hour at :17 (GitHub may delay runs a little at busy times)
+  workflow_dispatch:        # lets you press "Run workflow" by hand
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  issues: write             # opens an issue (= GitHub notification) on really big moves
+
+concurrency:
+  group: release-radar
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Pull Polymarket data and rebuild
+        run: node scripts/update.mjs
+        env:
+          PRIOR_URL: ${{ steps.pages.outputs.base_url }}/data/
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTIFY: 'true'      # set to 'false' to stop the big-move issues
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
